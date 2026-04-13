@@ -22,12 +22,12 @@ replayer = AudioReplayer(
 
 replayer.start()
 
-# Process in 160ms chunks for streaming
+# Process in 160ms frames for streaming
 text_output = ""
 while not replayer.is_done():
-    chunks = buffer.get_contents(clear=True)
-    for chunk in chunks:
-        text = parakeet.transcribe(chunk)
+    frames = buffer.get_contents(clear=True)
+    for frame in frames:
+        text = parakeet.transcribe(frame)
 
         if text == "":
             text = " _"

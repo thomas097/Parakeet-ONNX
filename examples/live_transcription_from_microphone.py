@@ -25,9 +25,9 @@ recorder.start()
 # Process in 160ms chunks for streaming
 text_output = ""
 while recorder.is_recording():
-    chunks = buffer.get_contents(clear=True)
-    for chunk in chunks:
-        text = parakeet.transcribe(chunk)
+    frames = buffer.get_contents(clear=True)
+    for frame in frames:
+        text = parakeet.transcribe(frame)
 
         print(text, end="", flush=True)
         text_output += text
