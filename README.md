@@ -47,7 +47,7 @@ pip install -r requirements.txt
 4. Download non-quantized models:
 
 ```bash
-cd checkpoints/parakeet-eou
+cd checkpoints/parakeet-realtime-eou
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/decoder_joint.onnx
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/encoder.onnx
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/tokenizer.json
@@ -58,7 +58,7 @@ wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m
 python scripts/quantize_onnx_partial_uint8.py
 ```
 
-When prompted to provide a model path, specify the relative path from the root of the project to the model file. For example, `checkpoints/parakeet-eou/encoder.onnx`.
+When prompted to provide a model path, specify the relative path from the root of the project to the model file. For example, `checkpoints/parakeet-realtime-eou/encoder.onnx`.
 
 
 ### 🧪 Dependencies
@@ -100,7 +100,7 @@ from src import ParakeetEOUModel, AudioBuffer, AudioRecorder
 
 # Load quantized model and tokenizer
 parakeet = ParakeetEOUModel.from_pretrained(
-    path="checkpoints/parakeet-eou",
+    path="checkpoints/parakeet-realtime-eou",
     device="cpu",
     quant="uint8"
 )

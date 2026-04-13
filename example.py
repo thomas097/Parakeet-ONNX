@@ -2,7 +2,7 @@ from src import ParakeetEOUModel, AudioBuffer, AudioRecorder
 
 # Load quantized model and tokenizer
 parakeet = ParakeetEOUModel.from_pretrained(
-    path="checkpoints/parakeet-eou",
+    path="checkpoints/parakeet-realtime-eou",
     device="cpu",
     quant="uint8"
     )
