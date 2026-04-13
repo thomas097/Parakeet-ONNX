@@ -7,8 +7,6 @@ from numpy.typing import NDArray
 from .model_eou import EOUModel, EncoderCache
 from .tokenizer import ParakeetTokenizer
 
-from .utils import Timer
-
 SAMPLE_RATE = 16000
 MIN_BUFFER_SIZE = .5
 MAX_BUFFER_SIZE = 6
@@ -109,12 +107,12 @@ class ParakeetEOUModel:
         features = full_features[:, :, start_frame:]
         time_steps = features.shape[2]
 
-        with Timer("model.run_encoder"):
-            encoder_out, self._encoder_cache = self._model.run_encoder(
-                features=features, 
-                length=time_steps, 
-                cache=self._encoder_cache
-                )
+        # Run encoder
+        encoder_out, self._encoder_cache = self._model.run_encoder(
+            features=features, 
+            length=time_steps, 
+            cache=self._encoder_cache
+            )
 
         total_frames = encoder_out.shape[2]
         if total_frames == 0:
@@ -126,13 +124,13 @@ class ParakeetEOUModel:
 
             syms_added = 0
             while syms_added < MAX_SYMBOLS:
-                with Timer("model.run_decoder"):
-                    logits, new_h, new_c = self._model.run_decoder(
-                        encoder_frame=current_frame, 
-                        last_token=self._last_token, 
-                        state_h=self._state_h, 
-                        state_c=self._state_c
-                    )
+                # Run decoder
+                logits, new_h, new_c = self._model.run_decoder(
+                    encoder_frame=current_frame, 
+                    last_token=self._last_token, 
+                    state_h=self._state_h, 
+                    state_c=self._state_c
+                )
 
                 vocab = logits[0, 0, :]
                 max_idx = int(np.argmax(np.where(np.isfinite(vocab), vocab, -np.inf)))
@@ -186,11 +184,10 @@ class ParakeetEOUModel:
         Returns:
             NDArray: Log-mel spectrogram with shape (1, N_MELS, num_frames).
         """
-        with Timer("extract_mel_features"):
-            audio_pre = self._apply_preemphasis(audio)
-            mel = self._mels @ self._stft(audio_pre)
-            mel_log = np.log(np.maximum(mel, 0.0) + LOG_ZERO_GUARD)
-            return mel_log[np.newaxis, :, :]
+        audio_pre = self._apply_preemphasis(audio)
+        mel = self._mels @ self._stft(audio_pre)
+        mel_log = np.log(np.maximum(mel, 0.0) + LOG_ZERO_GUARD)
+        return mel_log[np.newaxis, :, :]
 
     @staticmethod
     def _apply_preemphasis(audio: NDArray) -> NDArray:
@@ -221,37 +218,36 @@ class ParakeetEOUModel:
         Returns:
             NDArray: Power spectrogram of shape (N_FFT // 2 + 1, num_frames).
         """
-        with Timer("_stft"):
-            pad_amount = N_FFT // 2
-            padded_audio = np.pad(audio, (pad_amount, pad_amount))
+        pad_amount = N_FFT // 2
+        padded_audio = np.pad(audio, (pad_amount, pad_amount))
 
-            num_frames = 1 + (len(padded_audio) - WIN_LENGTH) // HOP_LENGTH
+        num_frames = 1 + (len(padded_audio) - WIN_LENGTH) // HOP_LENGTH
 
-            # Create strided frame view: shape (num_frames, WIN_LENGTH)
-            frames = as_strided(
-                padded_audio,
-                shape=(num_frames, WIN_LENGTH),
-                strides=(padded_audio.strides[0] * HOP_LENGTH,
-                        padded_audio.strides[0]),
-                writeable=False
-            )
+        # Create strided frame view: shape (num_frames, WIN_LENGTH)
+        frames = as_strided(
+            padded_audio,
+            shape=(num_frames, WIN_LENGTH),
+            strides=(padded_audio.strides[0] * HOP_LENGTH,
+                    padded_audio.strides[0]),
+            writeable=False
+        )
 
-            # Windowing (window should be precomputed once as NDArray)
-            windowed = frames * self._window
+        # Windowing (window should be precomputed once as NDArray)
+        windowed = frames * self._window
 
-            # Zero-pad to N_FFT
-            if WIN_LENGTH < N_FFT:
-                pad_width = ((0, 0), (0, N_FFT - WIN_LENGTH))
-                windowed = np.pad(windowed, pad_width)
+        # Zero-pad to N_FFT
+        if WIN_LENGTH < N_FFT:
+            pad_width = ((0, 0), (0, N_FFT - WIN_LENGTH))
+            windowed = np.pad(windowed, pad_width)
 
-            # Batched real FFT
-            fft_frames = rfft(windowed, axis=1)
+        # Batched real FFT
+        fft_frames = rfft(windowed, axis=1)
 
-            # Power spectrum
-            spec = np.abs(fft_frames) ** 2 #type:ignore
+        # Power spectrum
+        spec = np.abs(fft_frames) ** 2 #type:ignore
 
-            # Transpose to match your original output shape
-            return spec.T.astype(np.float32)
+        # Transpose to match your original output shape
+        return spec.T.astype(np.float32)
 
     @staticmethod
     def _create_mel_filterbank() -> NDArray:
@@ -261,22 +257,21 @@ class ParakeetEOUModel:
         Returns:
             NDArray: Mel filterbank of shape (N_MELS, N_FFT // 2 + 1).
         """
-        with Timer("_create_mel_filterbank"):
-            num_freqs = N_FFT // 2 + 1
-            hz_to_mel = lambda hz: 2595.0 * math.log10(1 + hz / 700.0)
-            mel_to_hz = lambda mel: 700.0 * (10**(mel / 2595.0) - 1.0)
-            mel_min, mel_max = hz_to_mel(0.0), hz_to_mel(FMAX)
-            mel_points = [mel_to_hz(mel_min + (mel_max - mel_min) * i / (N_MELS + 1))
-                        for i in range(N_MELS + 2)]
-            fft_freqs = [(SAMPLE_RATE / N_FFT) * i for i in range(num_freqs)]
-            weights = np.zeros((N_MELS, num_freqs), dtype=np.float32)
+        num_freqs = N_FFT // 2 + 1
+        hz_to_mel = lambda hz: 2595.0 * math.log10(1 + hz / 700.0)
+        mel_to_hz = lambda mel: 700.0 * (10**(mel / 2595.0) - 1.0)
+        mel_min, mel_max = hz_to_mel(0.0), hz_to_mel(FMAX)
+        mel_points = [mel_to_hz(mel_min + (mel_max - mel_min) * i / (N_MELS + 1))
+                    for i in range(N_MELS + 2)]
+        fft_freqs = [(SAMPLE_RATE / N_FFT) * i for i in range(num_freqs)]
+        weights = np.zeros((N_MELS, num_freqs), dtype=np.float32)
 
-            for i in range(N_MELS):
-                left, center, right = mel_points[i], mel_points[i+1], mel_points[i+2]
-                for j, freq in enumerate(fft_freqs):
-                    if left <= freq <= center:
-                        weights[i, j] = (freq - left) / (center - left)
-                    elif center < freq <= right:
-                        weights[i, j] = (right - freq) / (right - center)
-                weights[i, :] *= 2.0 / (right - left)  # normalize
-            return weights
+        for i in range(N_MELS):
+            left, center, right = mel_points[i], mel_points[i+1], mel_points[i+2]
+            for j, freq in enumerate(fft_freqs):
+                if left <= freq <= center:
+                    weights[i, j] = (freq - left) / (center - left)
+                elif center < freq <= right:
+                    weights[i, j] = (right - freq) / (right - center)
+            weights[i, :] *= 2.0 / (right - left)  # normalize
+        return weights
