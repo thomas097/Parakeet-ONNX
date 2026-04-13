@@ -81,6 +81,10 @@ class ParakeetEOUModel:
         tokenizer = ParakeetTokenizer.from_pretrained(path)
         model = EOUModel.from_pretrained(path, device=device, quant=quant)
         return cls(model=model, tokenizer=tokenizer)
+    
+    # ==============
+    #   Public API
+    # ==============
 
     def transcribe(self, chunk: NDArray) -> str:
         """
@@ -167,6 +171,10 @@ class ParakeetEOUModel:
         self._state_c.fill(0.0)
         self._last_token.fill(self._blank_id)
         self._last_non_blank_token = None
+
+    # ==============
+    #   Internal
+    # ==============
 
     def _extract_mel_features(self, audio: NDArray) -> NDArray:
         """

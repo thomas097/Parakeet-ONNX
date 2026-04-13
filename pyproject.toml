@@ -1,0 +1,16 @@
+[project]
+name = "parakeet-onnx"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "librosa>=0.11.0",
+    "onnx>=1.21.0",
+    "onnxruntime>=1.24.4",
+    "onnxruntime-tools>=1.7.0",
+    "scipy>=1.17.1",
+    "sounddevice>=0.5.5",
+    "soundfile>=0.13.1",
+    "tokenizers>=0.22.2",
+]

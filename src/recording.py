@@ -1,4 +1,9 @@
+import time
+import scipy
 import threading
+import librosa
+import numpy as np
+import soundfile as sf
 import sounddevice as sd
 from copy import deepcopy
 from typing import Optional
@@ -161,3 +166,80 @@ class AudioRecorder:
             self._stream.stop()
             self._stream.close()
             self._stream = None
+
+
+class AudioReplayer:
+    def __init__(
+            self,
+            buffer: AudioBuffer,
+            filepath: str,
+            samplerate=16000,
+            channels=1,
+            dtype="float32",
+            chunk_size=2560
+            ) -> None:
+        """
+        Initialize an AudioReplayer instance. 
+
+        Args:
+            buffer (AudioBuffer):       Buffer to collect audio chunks.
+            filepath (str):             Path to audio file.
+            samplerate (int, optional): Sample rate in Hz. Defaults to 16000.
+            channels (int, optional):   Number of input channels. Defaults to 1 (mono).
+            dtype (str, optional):      Datatype of audio samples. Defaults to "float32".
+            chunk_size (int, optional): Number of samples per audio chunk. Defaults to 1024.
+            device (int, optional):     Input device index. Defaults to None (system default microphone).
+        """
+        self.buffer = buffer
+        self.samplerate = samplerate
+        self.channels = channels
+        self.dtype = dtype
+        self.chunk_size = chunk_size
+
+        print('ready!')
+        self._data = self._load_audio_from_file(filepath)
+        self._thread = None
+        self._done = False
+
+    def _load_audio_from_file(self, filepath: str) -> np.ndarray:
+        data, sr = sf.read(filepath, dtype=self.dtype) #type:ignore
+
+        # Ensure correct shape
+        if len(data.shape) == 1:
+            data = np.expand_dims(data, axis=1)
+
+        # Convert to mono if needed
+        if self.channels == 1 and data.shape[1] > 1:
+            data = data[..., 0]
+
+        # Resample
+        if sr != self.samplerate:
+            data = librosa.resample(data, orig_sr=sr, target_sr=self.samplerate, axis=0)
+
+        return data
+   
+    def start(self):
+        self._done = False
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        total_samples = self._data.shape[0]
+        idx = 0
+
+        print("Total samples:", total_samples)
+
+        while idx < total_samples:
+            frame = self._data[idx:idx + self.chunk_size]
+            idx += self.chunk_size
+
+            self.buffer.append(frame)
+
+            # Simulate real-time streaming
+            duration = len(frame) / self.samplerate
+            time.sleep(duration)
+
+        self._done = True
+
+    def is_done(self):
+        return self._done
