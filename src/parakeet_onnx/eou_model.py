@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from numpy.typing import NDArray
 from typing import Optional
 
-class ModelError(Exception):
+class ModelLoadError(Exception):
     pass
 
 @dataclass
@@ -25,7 +25,7 @@ class EncoderCache:
     )
 
 
-class EOUModel:
+class EouModel:
     def __init__(
             self, 
             encoder_session: ort.InferenceSession, 
@@ -35,7 +35,7 @@ class EOUModel:
         self.decoder_joint = decoder_session
 
     @classmethod
-    def from_pretrained(cls, model_dir: str, device: str = 'cpu', quant: Optional[str] = None) -> 'EOUModel':
+    def from_pretrained(cls, model_dir: str, device: str = 'cpu', quant: Optional[str] = None) -> 'EouModel':
         """
         Convenience method to load an EOU model consisting of an encoder 
         and a joint decoder from an ONNX model directory.
@@ -56,7 +56,7 @@ class EOUModel:
         decoder_path = os.path.join(model_dir, f"decoder_joint{quant_suffix}.onnx")
 
         if not os.path.exists(encoder_path) or not os.path.exists(decoder_path):
-            raise ModelError(
+            raise ModelLoadError(
                 f"Missing ONNX files in '{model_dir}'. Expected '{os.path.basename(encoder_path)}' and '{os.path.basename(decoder_path)}'"
             )
         
@@ -113,12 +113,12 @@ class EOUModel:
         encoder_out, _, last_channel, last_time, last_channel_len = outputs
 
         cache = EncoderCache(
-            cache_last_channel=last_channel,
-            cache_last_time=last_time,
-            cache_last_channel_len=last_channel_len,
+            cache_last_channel=last_channel,         #type:ignore
+            cache_last_time=last_time,               #type:ignore
+            cache_last_channel_len=last_channel_len, #type:ignore
         )
 
-        return encoder_out, cache
+        return encoder_out, cache #type:ignore
 
     def run_decoder(
         self,
@@ -154,4 +154,4 @@ class EOUModel:
         )
         logits, _, new_h, new_c = outputs
 
-        return logits, new_h, new_c
+        return logits, new_h, new_c #type:ignore

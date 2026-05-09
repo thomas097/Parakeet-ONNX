@@ -1,11 +1,11 @@
 from tokenizers import Tokenizer
 
-class ParakeetTokenizer:
+class ParakeetEouTokenizer:
     def __init__(self, tokenizer: Tokenizer):
         self.tokenizer = tokenizer
 
     @classmethod
-    def from_pretrained(cls, path: str) -> 'ParakeetTokenizer':
+    def from_pretrained(cls, path: str) -> 'ParakeetEouTokenizer':
         # Load tokenizer.json from path
         tokenizer = Tokenizer.from_file(f"{path}/tokenizer.json")
         return cls(tokenizer)

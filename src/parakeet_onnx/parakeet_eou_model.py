@@ -4,8 +4,8 @@ from scipy.fft import rfft
 from numpy.lib.stride_tricks import as_strided
 from collections import deque
 from numpy.typing import NDArray
-from .model_eou import EOUModel, EncoderCache
-from .tokenizer import ParakeetTokenizer
+from .eou_model import EouModel, EncoderCache
+from .tokenizer import ParakeetEouTokenizer
 
 SAMPLE_RATE = 16000
 MIN_BUFFER_SIZE = .5
@@ -36,8 +36,8 @@ class RollingAudioBuffer(deque):
         return len(self) == self._maxlen
 
 
-class ParakeetEOUModel:
-    def __init__(self, model: EOUModel, tokenizer: ParakeetTokenizer):
+class ParakeetEouModel:
+    def __init__(self, model: EouModel, tokenizer: ParakeetEouTokenizer):
         """
         Initializes the ParakeetEOUModel with a pre-trained EOU model and tokenizer.
 
@@ -65,7 +65,7 @@ class ParakeetEOUModel:
             )
 
     @classmethod
-    def from_pretrained(cls, path: str, device: str = 'cpu', quant: str = "") -> 'ParakeetEOUModel':
+    def from_pretrained(cls, path: str, device: str = 'cpu', quant: str = "") -> 'ParakeetEouModel':
         """
         Loads a pre-trained ParakeetEOUModel from the specified path.
 
@@ -76,8 +76,8 @@ class ParakeetEOUModel:
         Returns:
             ParakeetEOUModel: An instance of the model initialized with pre-trained weights.
         """
-        tokenizer = ParakeetTokenizer.from_pretrained(path)
-        model = EOUModel.from_pretrained(path, device=device, quant=quant)
+        tokenizer = ParakeetEouTokenizer.from_pretrained(path)
+        model = EouModel.from_pretrained(path, device=device, quant=quant)
         return cls(model=model, tokenizer=tokenizer)
     
     # ==============
@@ -142,9 +142,7 @@ class ParakeetEOUModel:
                     self._last_non_blank_token = self._eou_id
                     return text_output + " [EOU]"
 
-                if max_idx in (self._blank_id, 0):
-                    break
-                if max_idx >= self._tokenizer.get_vocab_size():
+                if max_idx in (self._blank_id, 0) or max_idx >= self._tokenizer.get_vocab_size():
                     break
 
                 self._state_h = new_h
@@ -223,7 +221,6 @@ class ParakeetEOUModel:
 
         num_frames = 1 + (len(padded_audio) - WIN_LENGTH) // HOP_LENGTH
 
-        # Create strided frame view: shape (num_frames, WIN_LENGTH)
         frames = as_strided(
             padded_audio,
             shape=(num_frames, WIN_LENGTH),
@@ -232,7 +229,6 @@ class ParakeetEOUModel:
             writeable=False
         )
 
-        # Windowing (window should be precomputed once as NDArray)
         windowed = frames * self._window
 
         # Zero-pad to N_FFT
@@ -240,13 +236,10 @@ class ParakeetEOUModel:
             pad_width = ((0, 0), (0, N_FFT - WIN_LENGTH))
             windowed = np.pad(windowed, pad_width)
 
-        # Batched real FFT
         fft_frames = rfft(windowed, axis=1)
 
-        # Power spectrum
         spec = np.abs(fft_frames) ** 2 #type:ignore
 
-        # Transpose to match your original output shape
         return spec.T.astype(np.float32)
 
     @staticmethod
@@ -257,21 +250,31 @@ class ParakeetEOUModel:
         Returns:
             NDArray: Mel filterbank of shape (N_MELS, N_FFT // 2 + 1).
         """
-        num_freqs = N_FFT // 2 + 1
         hz_to_mel = lambda hz: 2595.0 * math.log10(1 + hz / 700.0)
         mel_to_hz = lambda mel: 700.0 * (10**(mel / 2595.0) - 1.0)
-        mel_min, mel_max = hz_to_mel(0.0), hz_to_mel(FMAX)
-        mel_points = [mel_to_hz(mel_min + (mel_max - mel_min) * i / (N_MELS + 1))
-                    for i in range(N_MELS + 2)]
+
+        mel_min = hz_to_mel(0.0)
+        mel_max = hz_to_mel(FMAX)
+
+        mel_points = [
+            mel_to_hz(mel_min + (mel_max - mel_min) * i / (N_MELS + 1)) 
+            for i in range(N_MELS + 2)
+            ]
+        
+        num_freqs = N_FFT // 2 + 1
         fft_freqs = [(SAMPLE_RATE / N_FFT) * i for i in range(num_freqs)]
+
         weights = np.zeros((N_MELS, num_freqs), dtype=np.float32)
 
         for i in range(N_MELS):
             left, center, right = mel_points[i], mel_points[i+1], mel_points[i+2]
+
             for j, freq in enumerate(fft_freqs):
                 if left <= freq <= center:
                     weights[i, j] = (freq - left) / (center - left)
                 elif center < freq <= right:
                     weights[i, j] = (right - freq) / (right - center)
+
             weights[i, :] *= 2.0 / (right - left)  # normalize
+
         return weights

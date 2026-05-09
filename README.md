@@ -31,20 +31,13 @@ git clone https://github.com/thomas097/parakeet-ONNX.git
 cd parakeet-onnx
 ````
 
-2. Create and activate a virtual environment (recommended):
+2. Create and synchronize `uv` virtual environment (recommended):
 
 ```bash
-python -m venv venv
-source venv/bin/activate
+uv sync
 ```
 
-3. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-4. Download non-quantized models:
+3. Download non-quantized models:
 
 ```bash
 cd checkpoints/parakeet-realtime-eou
@@ -53,7 +46,7 @@ wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/tokenizer.json
 ```
 
-5. UInt8 quantization (optional, but recommended for CPU deployment)
+4. UInt8 quantization (optional, but recommended for CPU deployment)
 ```
 python scripts/quantize_onnx_partial_uint8.py
 ```
@@ -79,21 +72,7 @@ onnxruntime-tools==1.7.0
 
 ## ▶️ Usage
 
-### Basic Example
-
-```bash
-python example.py
-```
-
-This will:
-
-* 🎙️ Capture audio from the default microphone
-* 🔊 Perform streaming ASR, emitting tokens as audio chunks come available
-* 📝 Reset line when an end-of-utterance is detected
-
-
-
-### Advanced Usage
+### Custom Usage
 
 ```python
 from src import ParakeetEOUModel, AudioBuffer, AudioRecorder
@@ -102,7 +81,7 @@ from src import ParakeetEOUModel, AudioBuffer, AudioRecorder
 parakeet = ParakeetEOUModel.from_pretrained(
     path="checkpoints/parakeet-realtime-eou",
     device="cpu",
-    quant="uint8"
+    quant="uint8" # or None
 )
 
 # Load audio sampled at 16kHz as chunks of 160ms (2560 samples per chunk)
@@ -114,6 +93,22 @@ for chunk in audio:
 ```
 
 The model maintains its internal state automatically — no need to manage it explicitly when calling `.transcribe()`.
+
+### Examples
+
+#### Live Transcription
+```bash
+python transcribe_from_mic.py
+```
+
+This script captures audio from the default microphone and emits tokens as audio chunks come available.
+
+#### Offline (batch) Transcription
+```bash
+python transcribe_from_file.py
+```
+
+This will stream audio frames from file in real-time and emit tokens as audio chunks come available.
 
 
 ## 🙏 Attribution
