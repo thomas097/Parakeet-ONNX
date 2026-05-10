@@ -6,24 +6,9 @@ from collections import deque
 from numpy.typing import NDArray
 from .eou_model import EouModel, EncoderCache
 from .tokenizer import ParakeetEouTokenizer
+from .config import ParakeetConfig
 
-SAMPLE_RATE = 16000
-MIN_BUFFER_SIZE = .5
-MAX_BUFFER_SIZE = 6
-PRE_ENCODE_CACHE = 9
-FRAMES_PER_CHUNK = 16
-SAMPLES_PER_CHUNK = 2560
-N_FFT = 512
-WIN_LENGTH = 400
-HOP_LENGTH = 160
-N_MELS = 128
-PREEMPH = 0.97
-LOG_ZERO_GUARD = 5.9604645e-8
-FMAX = 8000.0
-MAX_SYMBOLS = 4
-
-
-class RollingAudioBuffer(deque):
+class ParakeetAudioBuffer(deque):
     def __init__(self, minlen: int, maxlen: int):
         super().__init__(maxlen=maxlen)
         self._minlen = minlen
@@ -37,7 +22,12 @@ class RollingAudioBuffer(deque):
 
 
 class ParakeetEouModel:
-    def __init__(self, model: EouModel, tokenizer: ParakeetEouTokenizer):
+    def __init__(
+            self, 
+            model: EouModel, 
+            tokenizer: ParakeetEouTokenizer, 
+            config: ParakeetConfig = ParakeetConfig()
+            ):
         """
         Initializes the ParakeetEOUModel with a pre-trained EOU model and tokenizer.
 
@@ -46,6 +36,7 @@ class ParakeetEouModel:
             tokenizer (ParakeetTokenizer): Tokenizer used to convert between tokens and IDs.
         """
         self._model = model
+        self._config = config
         self._tokenizer = tokenizer
 
         self._blank_id = tokenizer.token_to_id("<EOB>")
@@ -58,10 +49,10 @@ class ParakeetEouModel:
         self._last_non_blank_token = None
 
         self._mels = self._create_mel_filterbank()
-        self._window = np.hanning(WIN_LENGTH).astype(np.float32)
-        self._buffer = RollingAudioBuffer(
-            minlen=int(SAMPLE_RATE * MIN_BUFFER_SIZE),
-            maxlen=int(SAMPLE_RATE * MAX_BUFFER_SIZE)
+        self._window = np.hanning(config.win_length).astype(np.float32)
+        self._buffer = ParakeetAudioBuffer(
+            minlen=int(config.sample_rate * config.min_buffer_size),
+            maxlen=int(config.sample_rate * config.max_buffer_size)
             )
 
     @classmethod
@@ -102,7 +93,7 @@ class ParakeetEouModel:
         audio_data = np.array(self._buffer, dtype=np.float32)
         full_features = self._extract_mel_features(audio_data)
         total_frames = full_features.shape[2]
-        start_frame = max(0, total_frames - PRE_ENCODE_CACHE - FRAMES_PER_CHUNK)
+        start_frame = max(0, total_frames - self._config.pre_encode_cache - self._config.frames_per_chunk)
 
         features = full_features[:, :, start_frame:]
         time_steps = features.shape[2]
@@ -123,7 +114,7 @@ class ParakeetEouModel:
             current_frame = encoder_out[:, :, t:t+1]
 
             syms_added = 0
-            while syms_added < MAX_SYMBOLS:
+            while syms_added < self._config.max_symbols:
                 # Run decoder
                 logits, new_h, new_c = self._model.run_decoder(
                     encoder_frame=current_frame, 
@@ -184,11 +175,10 @@ class ParakeetEouModel:
         """
         audio_pre = self._apply_preemphasis(audio)
         mel = self._mels @ self._stft(audio_pre)
-        mel_log = np.log(np.maximum(mel, 0.0) + LOG_ZERO_GUARD)
+        mel_log = np.log(np.maximum(mel, 0.0) + self._config.log_zero_guard)
         return mel_log[np.newaxis, :, :]
 
-    @staticmethod
-    def _apply_preemphasis(audio: NDArray) -> NDArray:
+    def _apply_preemphasis(self, audio: NDArray) -> NDArray:
         """
         Applies a pre-emphasis filter to the audio waveform.
 
@@ -202,7 +192,7 @@ class ParakeetEouModel:
             return audio
         result = np.empty_like(audio)
         result[0] = audio[0]
-        result[1:] = audio[1:] - PREEMPH * audio[:-1]
+        result[1:] = audio[1:] - self._config.pre_emphasis * audio[:-1]
         result[~np.isfinite(result)] = 0.0
         return result
 
@@ -216,15 +206,15 @@ class ParakeetEouModel:
         Returns:
             NDArray: Power spectrogram of shape (N_FFT // 2 + 1, num_frames).
         """
-        pad_amount = N_FFT // 2
+        pad_amount = self._config.n_fft // 2
         padded_audio = np.pad(audio, (pad_amount, pad_amount))
 
-        num_frames = 1 + (len(padded_audio) - WIN_LENGTH) // HOP_LENGTH
+        num_frames = 1 + (len(padded_audio) - self._config.win_length) // self._config.hop_length
 
         frames = as_strided(
             padded_audio,
-            shape=(num_frames, WIN_LENGTH),
-            strides=(padded_audio.strides[0] * HOP_LENGTH,
+            shape=(num_frames, self._config.win_length),
+            strides=(padded_audio.strides[0] * self._config.hop_length,
                     padded_audio.strides[0]),
             writeable=False
         )
@@ -232,8 +222,8 @@ class ParakeetEouModel:
         windowed = frames * self._window
 
         # Zero-pad to N_FFT
-        if WIN_LENGTH < N_FFT:
-            pad_width = ((0, 0), (0, N_FFT - WIN_LENGTH))
+        if self._config.win_length < self._config.n_fft:
+            pad_width = ((0, 0), (0, self._config.n_fft - self._config.win_length))
             windowed = np.pad(windowed, pad_width)
 
         fft_frames = rfft(windowed, axis=1)
@@ -242,8 +232,7 @@ class ParakeetEouModel:
 
         return spec.T.astype(np.float32)
 
-    @staticmethod
-    def _create_mel_filterbank() -> NDArray:
+    def _create_mel_filterbank(self) -> NDArray:
         """
         Creates a Mel filterbank for converting FFT bins to Mel-frequency bins.
 
@@ -254,19 +243,19 @@ class ParakeetEouModel:
         mel_to_hz = lambda mel: 700.0 * (10**(mel / 2595.0) - 1.0)
 
         mel_min = hz_to_mel(0.0)
-        mel_max = hz_to_mel(FMAX)
+        mel_max = hz_to_mel(self._config.fmax)
 
         mel_points = [
-            mel_to_hz(mel_min + (mel_max - mel_min) * i / (N_MELS + 1)) 
-            for i in range(N_MELS + 2)
+            mel_to_hz(mel_min + (mel_max - mel_min) * i / (self._config.n_mels + 1)) 
+            for i in range(self._config.n_mels + 2)
             ]
         
-        num_freqs = N_FFT // 2 + 1
-        fft_freqs = [(SAMPLE_RATE / N_FFT) * i for i in range(num_freqs)]
+        num_freqs = self._config.n_fft // 2 + 1
+        fft_freqs = [(self._config.sample_rate / self._config.n_fft) * i for i in range(num_freqs)]
 
-        weights = np.zeros((N_MELS, num_freqs), dtype=np.float32)
+        weights = np.zeros((self._config.n_mels, num_freqs), dtype=np.float32)
 
-        for i in range(N_MELS):
+        for i in range(self._config.n_mels):
             left, center, right = mel_points[i], mel_points[i+1], mel_points[i+2]
 
             for j, freq in enumerate(fft_freqs):

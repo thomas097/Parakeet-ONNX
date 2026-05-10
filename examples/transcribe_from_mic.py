@@ -1,7 +1,8 @@
 import sys, os
 sys.path.append(os.getcwd())
 
-from src.parakeet_onnx import ParakeetEouModel, AudioBuffer, AudioRecorder
+import time
+from parakeet_eou import ParakeetEouModel, AudioBuffer, AudioRecorder
 
 # Load quantized model and tokenizer
 parakeet = ParakeetEouModel.from_pretrained(
@@ -36,5 +37,7 @@ while recorder.is_recording():
 
         if "stop" in text:
             break
+
+    time.sleep(0.05)
 
 recorder.stop()

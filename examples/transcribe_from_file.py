@@ -1,7 +1,7 @@
 import sys, os
 sys.path.append(os.getcwd())
 
-from src.parakeet_onnx import ParakeetEouModel, AudioBuffer, AudioReplayer
+from parakeet_eou import ParakeetEouModel, AudioBuffer, AudioReplayer
 
 # Load quantized model and tokenizer
 parakeet = ParakeetEouModel.from_pretrained(

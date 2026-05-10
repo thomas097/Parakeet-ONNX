@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "parakeet-onnx"
 version = "0.1.0"
@@ -9,6 +5,8 @@ description = "ONNX-based re-implementation of the NVIDIA Parakeet Realtime EOU 
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "grpcio>=1.80.0",
+    "grpcio-tools>=1.80.0",
     "librosa>=0.11.0",
     "onnx>=1.21.0",
     "onnxruntime>=1.24.4",
@@ -18,9 +16,3 @@ dependencies = [
     "soundfile>=0.13.1",
     "tokenizers>=0.22.2",
 ]
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
