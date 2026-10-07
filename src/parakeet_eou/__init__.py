@@ -1,3 +1,2 @@
-from .parakeet_eou_model import ParakeetEouModel
+from .transcriber_with_eou_model import TranscriberWithEouModel
 from .tokenizer import ParakeetEouTokenizer
-from .utils import AudioBuffer, AudioRecorder, AudioReplayer

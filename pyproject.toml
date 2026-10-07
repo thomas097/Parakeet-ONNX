@@ -1,7 +1,7 @@
 [project]
 name = "parakeet-onnx"
 version = "0.1.0"
-description = "ONNX-based re-implementation of the NVIDIA Parakeet Realtime EOU v1 model."
+description = "A low-latency streaming ASR engine powered by the ONNX runtime and NVIDIA Parakeet Realtime EOU v1 model."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

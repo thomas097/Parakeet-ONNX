@@ -1,10 +1,10 @@
 import sys, os
 sys.path.append(os.getcwd())
 
-from parakeet_eou import ParakeetEouModel, AudioBuffer, AudioReplayer
+from src import TranscriberWithEouModel, AudioBuffer, AudioReplayer
 
 # Load quantized model and tokenizer
-parakeet = ParakeetEouModel.from_pretrained(
+parakeet = TranscriberWithEouModel.from_pretrained(
     path="checkpoints/parakeet-realtime-eou",
     device="cpu",
     quant="uint8")

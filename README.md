@@ -1,24 +1,17 @@
-# 🐦 Parakeet ONNX
+# ⚡ Streaming ASR
 
-An optimized Python implementation of the **Parakeet Realtime EOU-120M** streaming ASR model by NVIDIA.
+A lightweight, ultra-low-latency **streaming speech-to-text engine**, powered by NVIDIA's **Parakeet Realtime EOU-120M** model optimized for low-resource CPU deployment.
 
-Parakeet ONNX converts the original model to **ONNX** to enable cross-platform deployment and supports **UInt8 quantization** for ultra-low-latency, real-time speech recognition — ensuring efficient inference even on low-resource devices.
+The project provides a stateful, chunk-based transcription pipeline designed for **real-time voice applications**, with built-in **end-of-utterance (EOU) detection** and optional UInt8 quantization for efficient CPU inference.
 
+### Key features
 
-## 📌 Overview
-
-This repository provides a streamlined Python implementation for running **NVIDIA Parakeet Realtime EOU-120M v1** using **ONNX Runtime**.
-
-The main goals of this project are:
-
-- 🔄 ONNX conversion of the original Parakeet model.  
-- ⚡ UInt8 quantization to reduce latency, improve throughput, and minimize memory usage  
-- 🧩 A fully reimplemented preprocessing and inference pipeline with **no PyTorch or NVIDIA NeMo runtime dependencies!**
-- 🎮 CUDA support (for non-quantized model only)  
-- ✋ Improve the model's built-in end-of-utterance (EOU) detection by modifying the decoding strategy  
-
-This makes Parakeet ONNX ideal for local voice assistants and interactive applications. 
-
+* ⚡ **Ultra-low-latency streaming transcription**
+* 🧩 **Pure ONNX Runtime inference** — no PyTorch or NVIDIA NeMo runtime required
+* 🖥️ **CPU-optimized inference** with optional UInt8 quantization
+* 🔄 **Stateful streaming pipeline** — feed audio chunks continuously without manually managing model state
+* ✋ **End-of-utterance (EOU) detection** for interactive voice applications
+* 📦 **Cross-platform ONNX deployment**
 
 ## 🚀 Getting Started
 
@@ -29,36 +22,49 @@ This makes Parakeet ONNX ideal for local voice assistants and interactive applic
 ```bash
 git clone https://github.com/thomas097/parakeet-ONNX.git
 cd parakeet-onnx
-````
+```
 
-2. Create and synchronize `uv` virtual environment (recommended):
+2. Create and synchronize the `uv` virtual environment:
 
 ```bash
 uv sync
 ```
 
-3. Download non-quantized models:
+### Download the model
+
+Download the optimized ONNX model and tokenizer:
 
 ```bash
 cd checkpoints/parakeet-realtime-eou
+
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/decoder_joint.onnx
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/encoder.onnx
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/tokenizer.json
 ```
 
-4. UInt8 quantization (optional, but recommended for CPU deployment)
-```
+### Optional: UInt8 quantization
+
+For CPU deployments, UInt8 quantization is recommended to reduce memory usage and improve inference performance.
+
+From the project root, run:
+
+```bash
 python scripts/quantize_onnx_partial_uint8.py
 ```
 
-When prompted to provide a model path, specify the relative path from the root of the project to the model file. For example, `checkpoints/parakeet-realtime-eou/encoder.onnx`.
+When prompted for a model path, provide the path relative to the project root.
 
+For example:
 
-### 🧪 Dependencies
+```text
+checkpoints/parakeet-realtime-eou/encoder.onnx
+```
 
-The project has been tested extensively with the following dependencies:
+## 🧪 Dependencies
 
-```bash
+The project has been tested extensively with:
+
+```text
 tokenizers==0.19.1
 sounddevice==0.5.1
 numpy==1.25.2
@@ -72,55 +78,98 @@ onnxruntime-tools==1.7.0
 
 ## ▶️ Usage
 
-### Custom Usage
+### Streaming transcription
+
+The transcription engine accepts 16 kHz audio in small chunks and maintains the streaming state internally.
 
 ```python
-from src import ParakeetEOUModel, AudioBuffer, AudioRecorder
+from src import TranscriberWithEouModel
 
-# Load quantized model and tokenizer
-parakeet = ParakeetEOUModel.from_pretrained(
+# Load the quantized model
+transcriber = TranscriberWithEouModel.from_pretrained(
     path="checkpoints/parakeet-realtime-eou",
     device="cpu",
-    quant="uint8" # or None
+    quant="uint8",  # or None
 )
 
-# Load audio sampled at 16kHz as chunks of 160ms (2560 samples per chunk)
+# Audio chunks at 16 kHz.
+# The reference implementation uses 160 ms chunks
+# (2560 samples per chunk).
 audio = ...
 
 for chunk in audio:
-    new_tokens = parakeet.transcribe(chunk)
+    new_tokens = transcriber.transcribe(chunk)
     print(new_tokens)
 ```
 
-The model maintains its internal state automatically — no need to manage it explicitly when calling `.transcribe()`.
+The transcription state is maintained automatically, so callers only need to provide successive audio chunks.
 
-### Examples
+### 🎙️ Live transcription
 
-#### Live Transcription
+Capture audio directly from the default microphone:
+
 ```bash
 python transcribe_from_mic.py
 ```
 
-This script captures audio from the default microphone and emits tokens as audio chunks come available.
+The application continuously captures audio and emits transcription tokens as they become available.
 
-#### Offline (batch) Transcription
+### 📁 Offline / file streaming
+
+Stream audio from a file through the same real-time pipeline:
+
 ```bash
 python transcribe_from_file.py
 ```
 
-This will stream audio frames from file in real-time and emit tokens as audio chunks come available.
+Rather than performing traditional batch transcription, the example feeds audio into the engine chunk-by-chunk and emits results as they become available.
 
+## ⚙️ Architecture
+
+The system consists of a small streaming inference pipeline built around an optimized ONNX representation of the Parakeet Realtime EOU model.
+
+```text
+Audio
+  │
+  ▼
+┌─────────────────────┐
+│ Audio preprocessing │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ ONNX Encoder        │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Streaming Decoder   │
+│ + EOU detection     │
+└──────────┬──────────┘
+           │
+           ▼
+     Transcription
+```
+
+The underlying model is derived from **NVIDIA Parakeet Realtime EOU-120M v1**, but the runtime pipeline is implemented independently using ONNX Runtime.
+
+This allows the transcription engine to run without loading the original PyTorch/NeMo inference stack.
 
 ## 🙏 Attribution
 
+This project builds on the work of:
+
 * **NVIDIA** — Parakeet Realtime EOU-120M model and research
-* **ONNX Runtime** — High-performance inference engine
+* **ONNX Runtime** — High-performance cross-platform inference runtime
 
-All rights to the original, full-precision model belong to NVIDIA.
-
+The underlying Parakeet model is provided by NVIDIA. All rights to the original model remain with NVIDIA.
 
 ## 📄 License
 
-The source code is distributed under the **Apache 2.0 License**. The Parakeet Realtime EOU 120M-v1 model itself is governed by **NVIDIA’s Open Model licensing terms**.
-For details, see LICENSE-NVIDIA-OPEN-MODEL or visit the
-[NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/) page.
+The source code in this repository is distributed under the **Apache 2.0 License**.
+
+The Parakeet Realtime EOU 120M-v1 model itself is governed by **NVIDIA's Open Model License**.
+
+For details, see `LICENSE-NVIDIA-OPEN-MODEL` or the:
+
+[NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/?utm_source=chatgpt.com)
