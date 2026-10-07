@@ -1,17 +1,16 @@
-# ⚡ Streaming ASR
+# ⚡ Streaming STT
 
-A lightweight, ultra-low-latency **streaming speech-to-text engine**, powered by NVIDIA's **Parakeet Realtime EOU-120M** model optimized for low-resource CPU deployment.
+A lightweight, low-latency streaming speech-to-text (STT) engine, powered by [NVIDIA's Parakeet Realtime EOU-120M](https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1) model and the [ONNX Runtime](https://onnxruntime.ai/).
 
-The project provides a stateful, chunk-based transcription pipeline designed for **real-time voice applications**, with built-in **end-of-utterance (EOU) detection** and optional UInt8 quantization for efficient CPU inference.
+The project provides a stateful, chunk-based transcription pipeline designed for **real-time voice applications**, with built-in **end-of-utterance (EOU) detection** and optional **uint8 quantization** for efficient CPU inference.
 
-### Key features
+#### Key features
 
-* ⚡ **Ultra-low-latency streaming transcription**
-* 🧩 **Pure ONNX Runtime inference** — no PyTorch or NVIDIA NeMo runtime required
-* 🖥️ **CPU-optimized inference** with optional UInt8 quantization
-* 🔄 **Stateful streaming pipeline** — feed audio chunks continuously without manually managing model state
-* ✋ **End-of-utterance (EOU) detection** for interactive voice applications
-* 📦 **Cross-platform ONNX deployment**
+* ⚡ Ultra-low latency streaming transcription — CPU-optimized streaming inference
+* 🧩 Pure ONNX Runtime inference — no PyTorch or NVIDIA NeMo runtime required
+* 🔄 Stateful streaming pipeline — feed audio chunks continuously without manually managing model state
+* ✋ End-of-utterance (EOU) detection for interactive voice applications
+* 📦 Cross-platform ONNX deployment with optional uint8 quantization
 
 ## 🚀 Getting Started
 
@@ -42,9 +41,9 @@ wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m
 wget https://huggingface.co/altunenes/parakeet-rs/resolve/main/realtime_eou_120m-v1-onnx/tokenizer.json
 ```
 
-### Optional: UInt8 quantization
+### Optional: uint8 quantization
 
-For CPU deployments, UInt8 quantization is recommended to reduce memory usage and improve inference performance.
+For CPU deployments, uint8 quantization is recommended to reduce memory usage and improve inference performance.
 
 From the project root, run:
 
@@ -71,16 +70,14 @@ numpy==1.25.2
 scipy==1.10.1
 onnxruntime==1.19.2
 
-# Only required for UInt8 quantization
+# Only required for uint8 quantization
 onnx==1.20.0
 onnxruntime-tools==1.7.0
 ```
 
-## ▶️ Usage
+## Usage
 
-### Streaming transcription
-
-The transcription engine accepts 16 kHz audio in small chunks and maintains the streaming state internally.
+The transcription engine accepts 16 kHz audio in 160ms chunks (2560 samples) and maintains the streaming state internally.
 
 ```python
 from src import TranscriberWithEouModel
@@ -104,6 +101,7 @@ for chunk in audio:
 
 The transcription state is maintained automatically, so callers only need to provide successive audio chunks.
 
+## Examples
 ### 🎙️ Live transcription
 
 Capture audio directly from the default microphone:
@@ -151,7 +149,7 @@ Audio
      Transcription
 ```
 
-The underlying model is derived from **NVIDIA Parakeet Realtime EOU-120M v1**, but the runtime pipeline is implemented independently using ONNX Runtime.
+The underlying model is derived from `NVIDIA Parakeet Realtime EOU-120M v1`, but the runtime pipeline is implemented independently using ONNX Runtime.
 
 This allows the transcription engine to run without loading the original PyTorch/NeMo inference stack.
 

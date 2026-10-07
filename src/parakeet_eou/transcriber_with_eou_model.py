@@ -6,7 +6,7 @@ from collections import deque
 from numpy.typing import NDArray
 from .parakeet_eou_model import ParakeetEouModel, EncoderCache
 from .tokenizer import ParakeetEouTokenizer
-from .config import ParakeetConfig
+from .config import ParakeetEouConfig
 
 class ParakeetAudioBuffer(deque):
     def __init__(self, minlen: int, maxlen: int):
@@ -26,7 +26,7 @@ class TranscriberWithEouModel:
             self, 
             model: ParakeetEouModel, 
             tokenizer: ParakeetEouTokenizer, 
-            config: ParakeetConfig = ParakeetConfig()
+            config: ParakeetEouConfig = ParakeetEouConfig()
             ):
         """
         Initializes the TranscriberWithEouModel with a pre-trained EOU model and tokenizer.

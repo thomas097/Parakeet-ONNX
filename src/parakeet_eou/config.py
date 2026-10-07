@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
-class ParakeetConfig:
+class ParakeetEouConfig:
     sample_rate: int = 16000
     min_buffer_size: float = 0.5
     max_buffer_size: float = 8.0
