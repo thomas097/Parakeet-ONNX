@@ -86,7 +86,7 @@ from src import TranscriberWithEouModel
 transcriber = TranscriberWithEouModel.from_pretrained(
     path="checkpoints/parakeet-realtime-eou",
     device="cpu",
-    quant="uint8",  # or None
+    quant="uint8"  # or None
 )
 
 # Audio chunks at 16 kHz.
@@ -107,7 +107,7 @@ The transcription state is maintained automatically, so callers only need to pro
 Capture audio directly from the default microphone:
 
 ```bash
-python transcribe_from_mic.py
+uv run transcribe_from_mic.py
 ```
 
 The application continuously captures audio and emits transcription tokens as they become available.
@@ -117,10 +117,19 @@ The application continuously captures audio and emits transcription tokens as th
 Stream audio from a file through the same real-time pipeline:
 
 ```bash
-python transcribe_from_file.py
+uv run transcribe_from_file.py
 ```
 
 Rather than performing traditional batch transcription, the example feeds audio into the engine chunk-by-chunk and emits results as they become available.
+
+### Profiling
+
+To determine the expected runtime of the model on your hardware, you may run the profiling script.
+```bash
+uv run profiling.py
+```
+
+The script will compute runtime statistics on a ~10 second audio file (in file-streaming mode) over several consecutive runs.
 
 ## ⚙️ Architecture
 

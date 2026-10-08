@@ -75,7 +75,7 @@ class TranscriberWithEouModel:
     #   Public API
     # ==============
 
-    def transcribe(self, chunk: NDArray) -> str:
+    def transcribe(self, chunk: NDArray[np.float32]) -> str:
         """
         Transcribes a chunk of audio into text.
 

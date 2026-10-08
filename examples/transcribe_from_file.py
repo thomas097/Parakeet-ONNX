@@ -9,11 +9,11 @@ parakeet = TranscriberWithEouModel.from_pretrained(
     device="cpu",
     quant="uint8")
 
-# Prepare recording device
+# Prepare streaming replayer
 buffer = AudioBuffer()
 replayer = AudioReplayer(
     buffer=buffer,
-    filepath="examples/data/philip_II.wav",
+    filepath="examples/data/placatus.wav",
     samplerate=16000,
     channels=1,
     dtype="float32",

@@ -26,6 +26,10 @@ class AudioBuffer:
         self._buffer = []
         self._lock = threading.Lock()
 
+    @property
+    def size(self) -> int:
+        return sum([frame.shape[0] for frame in self._buffer])
+
     def append(self, frame: NDArray) -> None:
         """
         Append a frame of audio data to the buffer.
@@ -85,7 +89,7 @@ class AudioRecorder:
         channels: int = 1,
         dtype: str = "float32",
         chunk_size: int = 2560,
-        device: Optional[int] = None,
+        device: Optional[int] = None
     ) -> None:
         """
         Initialize an AudioRecorder instance. 
@@ -170,10 +174,10 @@ class AudioReplayer:
             self,
             buffer: AudioBuffer,
             filepath: str,
-            samplerate=16000,
-            channels=1,
-            dtype="float32",
-            chunk_size=2560
+            samplerate: int = 16000,
+            channels: int = 1,
+            dtype: str = "float32",
+            chunk_size: int = 2560
             ) -> None:
         """
         Initialize an AudioReplayer instance. 
@@ -193,7 +197,6 @@ class AudioReplayer:
         self.dtype = dtype
         self.chunk_size = chunk_size
 
-        print('ready!')
         self._data = self._load_audio_from_file(filepath)
         self._thread = None
         self._done = False
@@ -214,17 +217,18 @@ class AudioReplayer:
             data = librosa.resample(data, orig_sr=sr, target_sr=self.samplerate, axis=0)
 
         return data
+
+    def prefill(self):
+        self._run(prefill=True)
    
     def start(self):
         self._done = False
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-    def _run(self):
+    def _run(self, prefill: bool = False):
         total_samples = self._data.shape[0]
         idx = 0
-
-        print("Total samples:", total_samples)
 
         while idx < total_samples:
             frame = self._data[idx:idx + self.chunk_size]
@@ -232,9 +236,10 @@ class AudioReplayer:
 
             self.buffer.append(frame)
 
-            # Simulate real-time streaming
-            duration = len(frame) / self.samplerate
-            time.sleep(duration)
+            # Simulate real-time streaming (unless prefilling buffer)
+            if prefill:
+                duration = len(frame) / self.samplerate
+                time.sleep(duration)
 
         self._done = True
 
