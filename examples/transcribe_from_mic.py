@@ -29,6 +29,9 @@ while recorder.is_recording():
     for frame in frames:
         text = parakeet.transcribe(frame)
 
+        if text == "":
+            text = " _"
+
         print(text, end="", flush=True)
         text_output += text
 

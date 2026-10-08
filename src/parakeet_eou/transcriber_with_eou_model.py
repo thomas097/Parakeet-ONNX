@@ -55,6 +55,8 @@ class TranscriberWithEouModel:
             maxlen=int(config.sample_rate * config.max_buffer_size)
             )
 
+        self._silences = ParakeetAudioBuffer(minlen=0, maxlen=8)
+
     @classmethod
     def from_pretrained(cls, path: str, device: str = 'cpu', quant: str = "") -> 'TranscriberWithEouModel':
         """
@@ -70,6 +72,19 @@ class TranscriberWithEouModel:
         tokenizer = ParakeetEouTokenizer.from_pretrained(path)
         model = ParakeetEouModel.from_pretrained(path, device=device, quant=quant)
         return cls(model=model, tokenizer=tokenizer)
+
+    def _is_silence(self, chunk: NDArray) -> bool:
+        """Tests whether the audio entered a phase of silence.
+
+        Args:
+            chunk (NDArray): Audio samples to be transcribed.
+
+        Returns:
+            bool: Whether the audio is silent.
+        """
+        is_silent = np.quantile(np.absolute(chunk), 0.95) < 1e-3
+        self._silences.append(is_silent)
+        return all(self._silences)
     
     # ==============
     #   Public API
@@ -83,8 +98,11 @@ class TranscriberWithEouModel:
             chunk (NDArray): Audio samples to be transcribed.
 
         Returns:
-            str: Transcribed text. May contain the special token "[EOU]" if an end-of-utterance is detected.
+            str: Transcribed text. May contain the special token "[EOU]" if the end of an utterance is detected.
         """
+        if self._is_silence(chunk):
+            return ""
+        
         self._buffer.extend(chunk.flatten())
 
         if not self._buffer.is_minlen():

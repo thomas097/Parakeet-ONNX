@@ -19,9 +19,6 @@ class AudioBuffer:
     def __init__(self) -> None:
         """
         Initialize an empty AudioBuffer.
-
-        Args:
-            samplerate (int): Sample rate of the audio.
         """
         self._buffer = []
         self._lock = threading.Lock()
